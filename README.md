@@ -31,12 +31,19 @@ and no subdirectories inside those.
 
 ```
 source/
-├── evangelion
+├── evangelion/
 │   └── 1x1.mp4
-└── lain
+└── lain/
     └── 1x1.mp4
 ```
 
 ## Dependencies
 
 You will need to install mpv to reproduce the video from the terminal, follow the installation guide [here](https://mpv.io/installation/).
+
+## Keybinds
+
+* `n` go to next page.
+* `p` go to previous page.
+* `r` return to main menu.
+* `q` for quitting the script.
