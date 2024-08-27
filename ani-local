@@ -26,7 +26,7 @@ touch "$LOG_FILE"
 
 function show_logs() {
   if [ -f "$LOG_FILE" ]; then
-    cat "$LOG_FILE"
+    less "$LOG_FILE"
   else
     echo -e "${RED}Log file not found.${NC}"
   fi
@@ -41,6 +41,11 @@ if [ ! -d "$SOURCE_DIR" ]; then
   echo -e "${RED}Directory $SOURCE_DIR does not exist.${NC}"
   exit 1
 fi
+
+function get_last_seen() {
+  local subdir="$1"
+  grep "$subdir" "$LOG_FILE" | tail -n 1 | awk -F '/' '{print $NF}' | sed 's/.mp4//'
+}
 
 function select_subdir() {
   while true; do
@@ -72,15 +77,26 @@ function select_subdir() {
 
 function select_file() {
   local subdir="$1"
+  local last_seen=$(get_last_seen "$subdir")
   local current_page=1
   local per_page=10
+  local start_index=0
+
+  mapfile -t files < <(ls "$SOURCE_DIR/$subdir"/*.mp4 2>/dev/null | sort -V)
+
+  if [ -n "$last_seen" ]; then
+    for i in "${!files[@]}"; do
+      if [[ "${files[$i]}" == *"$last_seen.mp4" ]]; then
+        current_page=$(( (i / per_page) + 1 ))
+        start_index=$(( (current_page - 1) * per_page ))
+        break
+      fi
+    done
+  fi
 
   while true; do
     clear
-    local start_index=$(( (current_page - 1) * per_page ))
     local end_index=$(( start_index + per_page - 1 ))
-
-    mapfile -t files < <(ls "$SOURCE_DIR/$subdir"/*.mp4 2>/dev/null | sort -V)
 
     if [ ${#files[@]} -eq 0 ]; then
       echo -e "${RED}No .mp4 files found in $SOURCE_DIR/$subdir.${NC}"
@@ -93,7 +109,11 @@ function select_file() {
         break
       fi
       file_name=$(basename "${files[$i]}" .mp4)
-      echo -e "${WHITE_BOLD}$((i + 1)))${NC} ${YELLOW}${file_name}${NC}"
+      if [[ "$file_name" == "$last_seen" ]]; then
+        echo -e "${WHITE_BOLD}$((i + 1)))${NC} ${YELLOW}(Last seen) $file_name${NC}"
+      else
+        echo -e "${WHITE_BOLD}$((i + 1)))${NC} ${file_name}"
+      fi
     done
 
     read -rp "Option: " choice
@@ -104,9 +124,9 @@ function select_file() {
           local selected_file="${files[$((choice - 1))]}"
           local file_base=$(basename "${selected_file}" .mp4)
           echo -e "${GREEN}Playing: $selected_file${NC}"
- 
+
           mpv --fs "$selected_file" > >(grep -E '^[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}' | tee -a "$LOG_FILE") 2>/dev/null
-          
+
           echo "$(date '+%d/%m/%Y - %I:%M%p') - $selected_file" >> "$LOG_FILE"
         else
           echo -e "${RED}Invalid selection.${NC}"
@@ -115,6 +135,7 @@ function select_file() {
       n)
         if [ $end_index -lt $((${#files[@]} - 1)) ]; then
           current_page=$((current_page + 1))
+          start_index=$(( (current_page - 1) * per_page ))
         else
           echo -e "${YELLOW}You are already on the last page.${NC}"
         fi
@@ -122,6 +143,7 @@ function select_file() {
       p)
         if [ $current_page -gt 1 ]; then
           current_page=$((current_page - 1))
+          start_index=$(( (current_page - 1) * per_page ))
         else
           echo -e "${YELLOW}You are already on the first page.${NC}"
         fi
