@@ -64,6 +64,7 @@ function select_subdir() {
     select subdir in "${subdirs[@]}"; do
       if [[ "$subdir" == "Exit" ]]; then
         echo -e "${YELLOW}Exiting...${NC}"
+	clear
         exit 0
       elif [ -n "$subdir" ]; then
         select_file "$subdir"
@@ -125,9 +126,14 @@ function select_file() {
           local file_base=$(basename "${selected_file}" .mp4)
           echo -e "${GREEN}Playing: $selected_file${NC}"
 
+          # Play the file
           mpv --fs "$selected_file" > >(grep -E '^[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}' | tee -a "$LOG_FILE") 2>/dev/null
 
+          # Update log file with the current file
           echo "$(date '+%d/%m/%Y - %I:%M%p') - $selected_file" >> "$LOG_FILE"
+
+          # Update last_seen dynamically after playing the video
+          last_seen=$(basename "$selected_file" .mp4)
         else
           echo -e "${RED}Invalid selection.${NC}"
         fi
@@ -153,6 +159,7 @@ function select_file() {
         ;;
       q)
         echo -e "${YELLOW}Exiting...${NC}"
+	clear
         exit 0
         ;;
       *)
